@@ -69,7 +69,7 @@ _
     },
     result => {
         schema => 'str*',
-        summary => 'A script that can be put as FPATH/_PROG',
+        summary => 'A script that can be put in $fpath/_$cmdname',
     },
 };
 sub gen_zsh_complete_from_getopt_long_spec {
@@ -80,19 +80,22 @@ sub gen_zsh_complete_from_getopt_long_spec {
     my $compname = $args{compname};
     my $opt_desc = $args{opt_desc};
 
-    my $qcompname = shell_quote($compname);
-
     my @res;
     push @res, "#compdef $cmdname\n";
 
     # define function to complete arg or option value
-    my $val_func = _quote($cmdname);
-    push @res, join(
-        "",
-        "$val_func() {\n",
-        "  _values 'values' \${(uf)\"\$(COMP_SHELL=zsh COMP_LINE=\$BUFFER COMP_POINT=\$CURSOR $qcompname)\"}\n",
-        "}\n",
-    );
+    my $val_func;
+    if (defined $compname) {
+        $val_func = _quote($cmdname . "_val");
+        push @res, join(
+            "",
+            "$val_func() {\n",
+            "  _values 'values' \${(uf)\"\$(COMP_SHELL=zsh COMP_LINE=\$BUFFER COMP_POINT=\$CURSOR ".shell_quote($compname).")\"}\n",
+            "}\n",
+        );
+    } else {
+        $val_func = "_files";
+    }
 
     push @res, "_arguments \\\n";
     for my $ospec (sort {
@@ -118,11 +121,13 @@ sub gen_zsh_complete_from_getopt_long_spec {
                     push @res, "  " . shell_quote(
                         "$opt\[$desc\]" .
                             ($res->{min_vals} > 0 ? ":value:$val_func" : "")) .
-                            "\n";
+                            " \\\n";
                 }
             }
         }
     }
+    push @res, "\n";
+
     [200, "OK", join("", @res)];
 }
 
@@ -160,7 +165,7 @@ _
     },
     result => {
         schema => 'str*',
-        summary => 'A script that can be fed to the zsh shell',
+        summary => 'A script that can be put in $fpath/_$cmdname',
     },
 };
 sub gen_zsh_complete_from_getopt_long_script {
